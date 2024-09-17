@@ -310,9 +310,9 @@ class Runner(BaseRunner):
         Dynamics
             The ASE Dynamics object following an NEB calculation.
         """
-        neb = NEB(self.atoms, **neb_kwargs)
+        neb = NEB(self.atoms, **(neb_kwargs or {}))
 
-        dyn = NEBOptimizer(neb, **optimizer_kwargs)
+        dyn = NEBOptimizer(neb, **(optimizer_kwargs or {}))
         # dyn.run(**run_kwargs)
 
         return dyn
