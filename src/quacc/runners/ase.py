@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from importlib.util import find_spec
 from logging import getLogger
+from copy import deepcopy
 from shutil import copy, copytree
 from typing import TYPE_CHECKING, Callable
 
@@ -81,7 +82,7 @@ class Runner(BaseRunner):
         self.atoms = copy_atoms(atoms)
         if isinstance(self.atoms, list):
             for a in self.atoms:
-                a.calc = calculator
+                a.calc = deepcopy(calculator)
         else:
             self.atoms.calc = calculator
         self.copy_files = copy_files
@@ -230,7 +231,7 @@ class Runner(BaseRunner):
             full_run_kwargs.pop("fmax")
         try:
             with traj, optimizer(self.atoms, **merged_optimizer_kwargs) as dyn:
-                if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics)):
+                if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics, NEBOptimizer)):
                     # https://gitlab.coms/ase/ase/-/issues/1475
                     # https://gitlab.com/ase/ase/-/issues/1497
                     dyn.run(**full_run_kwargs)
@@ -293,7 +294,14 @@ class Runner(BaseRunner):
 
         return vib
     
-    def run_neb(self, neb_kwargs: dict[str, Any] | None = None, optimizer_kwargs: dict[str, Any] | None = None, run_kwargs: dict[str, Any] | None = None) -> Dynamics:
+    def run_neb(
+        self, 
+        fmax: float | None = 0.01,
+        max_steps: int = 1000,
+        neb_kwargs: dict[str, Any] | None = None, 
+        optimizer_kwargs: dict[str, Any] | None = None, 
+        run_kwargs: dict[str, Any] | None = None,
+    ) -> Dynamics:
         """
         Run an ASE-based nudged elastic band (NEB) calculation in a scratch directory
         and copy the results back to the original directory.
@@ -310,12 +318,20 @@ class Runner(BaseRunner):
         Dynamics
             The ASE Dynamics object following an NEB calculation.
         """
-        neb = NEB(self.atoms, **(neb_kwargs or {}))
+        self.atoms = NEB(self.atoms, **(neb_kwargs or {}))
 
-        dyn = NEBOptimizer(neb, **(optimizer_kwargs or {}))
+        dynamics = NEBOptimizer
         # dyn.run(**run_kwargs)
 
-        return dyn
+        optimizer_kwargs = optimizer_kwargs or {}
+        optimizer_kwargs["logfile"] = self.tmpdir / "neb.log"
+
+        return self.run_opt(
+            fmax=fmax,
+            max_steps=max_steps,
+            optimizer=dynamics,
+            optimizer_kwargs=optimizer_kwargs,
+        )
 
     def run_md(
         self,
