@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 from monty.shutil import gzip_dir
 
+from ase.atoms import Atoms
+
 from quacc import JobFailure, get_settings
 from quacc.utils.files import copy_decompress_files, make_unique_dir
 
@@ -22,7 +24,7 @@ LOGGER = getLogger(__name__)
 
 
 def calc_setup(
-    atoms: Atoms | None,
+    atoms: Atoms | list[Atoms] | None,
     copy_files: SourceDirectory | dict[SourceDirectory, Filenames] | None = None,
 ) -> tuple[Path, Path]:
     """
@@ -59,8 +61,11 @@ def calc_setup(
     LOGGER.info(f"Calculation will run at {tmpdir}")
 
     # Set the calculator's directory
-    if atoms is not None:
+    if isinstance(atoms, Atoms):
         atoms.calc.directory = tmpdir
+    elif isinstance(atoms, list):
+        for atom in atoms:
+            atom.calc.directory = tmpdir
 
     # Define the results directory
     job_results_dir = settings.RESULTS_DIR
