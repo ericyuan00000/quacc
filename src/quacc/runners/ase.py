@@ -296,8 +296,6 @@ class Runner(BaseRunner):
     
     def run_neb(
         self, 
-        fmax: float | None = 0.01,
-        max_steps: int = 1000,
         neb_kwargs: dict[str, Any] | None = None, 
         optimizer_kwargs: dict[str, Any] | None = None, 
         run_kwargs: dict[str, Any] | None = None,
@@ -321,16 +319,14 @@ class Runner(BaseRunner):
         self.atoms = NEB(self.atoms, **(neb_kwargs or {}))
 
         dynamics = NEBOptimizer
-        # dyn.run(**run_kwargs)
 
         optimizer_kwargs = optimizer_kwargs or {}
         optimizer_kwargs["logfile"] = self.tmpdir / "neb.log"
 
         return self.run_opt(
-            fmax=fmax,
-            max_steps=max_steps,
             optimizer=dynamics,
             optimizer_kwargs=optimizer_kwargs,
+            run_kwargs=run_kwargs,
         )
 
     def run_md(

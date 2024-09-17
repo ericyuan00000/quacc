@@ -121,8 +121,11 @@ def calc_cleanup(
         raise ValueError(msg)
 
     # Update the calculator's directory
-    if atoms is not None:
+    if isinstance(atoms, Atoms):
         atoms.calc.directory = job_results_dir
+    elif isinstance(atoms, list):
+        for atom in atoms:
+            atom.calc.directory = job_results_dir
 
     # Gzip files in tmpdir
     if settings.GZIP_FILES:
