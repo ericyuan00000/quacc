@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ase.mep.neb import NEB
+
 from quacc import job
 from quacc.recipes.mlp._base import pick_calculator
 from quacc.runners.ase import Runner
@@ -32,6 +34,55 @@ if TYPE_CHECKING:
     from ase.atoms import Atoms
 
     from quacc.types import OptParams, OptSchema, RunSchema, NebSchema
+
+@job
+def interpolate_job(
+    reactant_atoms: Atoms,
+    product_atoms: Atoms,
+    interpolation_method: Literal["linear", "idpp", "geodesic"],
+    interpolate_kwargs: dict[str, Any] | None = None,
+) -> OptSchema:
+    """
+    Interpolate between two structures.
+
+    Parameters
+    ----------
+    reactant_atoms
+        Reactant Atoms object
+    product_atoms
+        Product Atoms object
+    interpolation_method
+        Method to use for interpolation
+    interpolate_kwargs
+        Additional kwargs for the interpolation method
+
+    Returns
+    -------
+    OptSchema
+        Dictionary of results from [quacc.schemas.ase.Summarize.run][].
+        See the type-hint for the data structure.
+    """
+    if interpolation_method == "geodesic":
+        images = geodesic_interpolate_wrapper(
+            relax_summary_r["atoms"], relax_summary_p["atoms"], **interpolate_kwargs
+        )
+    else:
+        images = [reactant_atoms]
+        images += [
+            reactant_atoms.copy() for i in range(interpolate_kwargs["n_images"] - 2)
+        ]
+        images += [product_atoms]
+        neb = NEB(images)
+        # Interpolate linearly the positions of the middle images:
+        neb.interpolate(method=interpolation_method)
+        images = neb.images
+
+    return {
+        "initial_images": [reactant_atoms, product_atoms],
+        "interpolated_images": images,
+        "interpolation_method": interpolation_method,
+        "interpolate_kwargs": interpolate_kwargs,
+    }
 
 @job
 def neb_job(
