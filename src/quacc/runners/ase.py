@@ -20,6 +20,7 @@ from ase.md.velocitydistribution import (
 from ase.optimize import BFGS
 from ase.optimize.sciopt import SciPyOptimizer
 from ase.vibrations import Vibrations
+from ase.mep.neb import NEB, NEBOptimizer
 from monty.dev import requires
 from monty.os.path import zpath
 
@@ -57,7 +58,7 @@ class Runner(BaseRunner):
 
     def __init__(
         self,
-        atoms: Atoms,
+        atoms: Atoms | list[Atoms],
         calculator: Calculator,
         copy_files: SourceDirectory | dict[SourceDirectory, Filenames] | None = None,
     ) -> None:
@@ -78,7 +79,11 @@ class Runner(BaseRunner):
         None
         """
         self.atoms = copy_atoms(atoms)
-        self.atoms.calc = calculator
+        if isinstance(self.atoms, list):
+            for a in self.atoms:
+                a.calc = calculator
+        else:
+            self.atoms.calc = calculator
         self.copy_files = copy_files
         self.setup()
 
@@ -287,6 +292,30 @@ class Runner(BaseRunner):
         self.cleanup()
 
         return vib
+    
+    def run_neb(self, neb_kwargs: dict[str, Any] | None = None, optimizer_kwargs: dict[str, Any] | None = None, run_kwargs: dict[str, Any] | None = None) -> Dynamics:
+        """
+        Run an ASE-based nudged elastic band (NEB) calculation in a scratch directory
+        and copy the results back to the original directory.
+
+        Parameters
+        ----------
+        images
+            List of Atoms objects representing the images in the NEB calculation.
+        neb_kwargs
+            Dictionary of kwargs for the [ase.neb.NEB][] class.
+
+        Returns
+        -------
+        Dynamics
+            The ASE Dynamics object following an NEB calculation.
+        """
+        neb = NEB(self.atoms, **neb_kwargs)
+
+        dyn = NEBOptimizer(neb, **optimizer_kwargs)
+        # dyn.run(**run_kwargs)
+
+        return dyn
 
     def run_md(
         self,

@@ -515,6 +515,11 @@ if TYPE_CHECKING:
     class VibThermoSchema(VibSchema, ThermoSchema):
         """Combined Vibrations and Thermo schema"""
 
+    class NebSchema(TypedDict):
+        images: list[Atoms]
+        trajectory: list[list[Atoms]]
+        trajectory_results: list[list[Results]]
+
     # ----------- Schema (phonons) type hints -----------
 
     class ThermalProperties(TypedDict):

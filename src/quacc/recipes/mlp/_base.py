@@ -16,7 +16,7 @@ LOGGER = getLogger(__name__)
 
 @lru_cache
 def pick_calculator(
-    method: Literal["mace-mp-0", "m3gnet", "chgnet"], **kwargs
+    method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet"], **kwargs
 ) -> Calculator:
     """
     Adapted from `matcalc.util.get_universal_calculator`.
@@ -63,6 +63,20 @@ def pick_calculator(
         if "default_dtype" not in kwargs:
             kwargs["default_dtype"] = "float64"
         calc = mace_mp(**kwargs)
+
+    elif method.lower() == "mace-off":
+        from mace import __version__
+        from mace.calculators import mace_off
+
+        if "default_dtype" not in kwargs:
+            kwargs["default_dtype"] = "float64"
+        calc = mace_off(**kwargs)
+
+    elif method.lower() == "newtonnet":
+        from newtonnet import __version__
+        from newtonnet.utils.ase_interface import MLAseCalculator
+
+        calc = MLAseCalculator(**kwargs)
 
     else:
         raise ValueError(f"Unrecognized {method=}.")
