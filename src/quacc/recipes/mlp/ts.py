@@ -23,6 +23,7 @@ from quacc import job
 from quacc.recipes.mlp._base import pick_calculator
 from quacc.runners.ase import Runner
 from quacc.schemas.ase import Summarize
+from quacc.schemas.ase import summarize_neb_run
 from quacc.utils.dicts import recursive_dict_merge
 
 if TYPE_CHECKING:
@@ -45,21 +46,20 @@ def neb_job(
 
     dyn = Runner(images, calc).run_neb(neb_kwargs, optimizer_kwargs)
 
-    return Summarize(
-        additional_fields={"name": f"{method} NEB"} | (neb_kwargs or {})
-    ).run(dyn)
+    # return Summarize(
+    #     additional_fields={"name": f"{method} NEB"} | (neb_kwargs or {})
+    # ).run(dyn)
 
     return {
-        "relax_reactant": relax_summary_r,
-        "relax_product": relax_summary_p,
         "initial_images": images,
         "neb_results": summarize_neb_run(
             dyn,
             n_images=len(images),
             additional_fields={
-                "neb_flags": neb_flags,
-                "calc_flags": calc_flags,
-                "interpolate_flags": interpolate_flags,
+                "name": f"{method} NEB",
+                "method": method,
+                "neb_kwargs": neb_kwargs,
+                "optimizer_kwargs": optimizer_kwargs,
             },
         ),
     }
