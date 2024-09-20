@@ -27,7 +27,7 @@ import rmsd
 from quacc import job
 from quacc.recipes.mlp._base import pick_calculator
 from quacc.runners.ase import Runner
-from quacc.schemas.ase import Summarize, NebSummarize
+from quacc.schemas.ase import Summarize
 from quacc.utils.dicts import recursive_dict_merge
 
 has_geodesic_interpolate = bool(find_spec("geodesic_interpolate"))
@@ -35,6 +35,10 @@ has_geodesic_interpolate = bool(find_spec("geodesic_interpolate"))
 if has_geodesic_interpolate:
     from geodesic_interpolate.geodesic import Geodesic
     from geodesic_interpolate.interpolation import redistribute
+
+# import sys
+# sys.path.append('/global/homes/e/ericyuan/GitHub')
+# from transbymep
 
 if TYPE_CHECKING:
     from typing import Any, Literal
@@ -125,9 +129,9 @@ def neb_job(
 
     dyn = Runner(images, calc).run_neb(neb_flags, opt_flags, run_flags)
 
-    return NebSummarize(
+    return Summarize(
         additional_fields={"name": f"{method} NEB"} | additional_fields
-    ).opt(dyn)
+    ).neb(dyn)
 
     # return {
     #     "initial_images": images,
@@ -258,3 +262,36 @@ def geodesic_interpolate_wrapper(
         Atoms(symbols=chemical_symbols, positions=geom)
         for geom in geodesic_smoother.path
     ]
+
+# def pathopt_wrapper(
+#     images: list[Atoms],
+#     method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet"],
+#     opt_params: dict[str, Any] | None = None,
+#     **calc_kwargs,
+# ):
+#     """
+#     Optimize a path of images using a machine-learned potential.
+
+#     Parameters
+#     ----------
+#     images
+#         List of Atoms objects representing the path of images.
+#     method
+#         The method to use for the optimization.
+#     opt_params
+#         Additional parameters for the optimization method.
+#     calc_kwargs
+#         Additional parameters for the calculator.
+
+#     Returns
+#     -------
+#     dict
+#         Dictionary containing the initial images, the optimized images, and the optimization results.
+#     """
+#     calc = pick_calculator(method, **calc_kwargs)
+#     dyn = Runner(images, calc).run_pathopt(opt_params)
+#     return {
+#         "initial_images": images,
+#         "optimized_images": dyn.images,
+#         "pathopt_results": Summarize.run(dyn),
+#     }
