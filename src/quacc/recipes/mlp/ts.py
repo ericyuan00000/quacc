@@ -36,8 +36,6 @@ if has_geodesic_interpolate:
     from geodesic_interpolate.geodesic import Geodesic
     from geodesic_interpolate.interpolation import redistribute
 
-# import sys
-# sys.path.append('/global/homes/e/ericyuan/GitHub/transbymep')
 from transbymep import optimize_MEP
 
 if TYPE_CHECKING:
@@ -155,9 +153,23 @@ def pathopt_job(
     path_params: dict[str, Any] | None = None,
     integrator_params: dict[str, Any] | None = None,
     optimizer_params: dict[str, Any] | None = None,
+    num_optimizer_iterations: int = 1000,
 ):
-    output = pathopt_wrapper(images, potential_params, path_params, integrator_params, optimizer_params)
-    return output | {"potential_params": potential_params, "path_params": path_params, "integrator_params": integrator_params, "optimizer_params": optimizer_params}
+    pathopt_params = {
+        "images": images,
+        "potential_params": potential_params,
+        "path_params": path_params,
+        "integrator_params": integrator_params,
+        "optimizer_params": optimizer_params,
+        "num_optimizer_iterations": num_optimizer_iterations,
+    }
+    output = pathopt_wrapper(**pathopt_params)
+    output["initial_images"] = images
+    final_images = [images[0].copy() for _ in range(len(output["geometry"][-1]))]
+    for geom, atoms in zip(output["geometry"][-1], final_images):
+        atoms.set_positions(geom.reshape(-1, 3))
+    output["final_images"] = final_images
+    return output | pathopt_params
 
 
 def geodesic_interpolate_wrapper(
@@ -249,13 +261,7 @@ def geodesic_interpolate_wrapper(
         for geom in geodesic_smoother.path
     ]
 
-def pathopt_wrapper(
-    images: list[Atoms],
-    potential_params: dict[str, Any] | None = None,
-    path_params: dict[str, Any] | None = None,
-    integrator_params: dict[str, Any] | None = None,
-    optimizer_params: dict[str, Any] | None = None,
-):
+def pathopt_wrapper(**pathopt_params):
     """
     Optimize a path of images using a machine-learned potential.
 
@@ -275,14 +281,9 @@ def pathopt_wrapper(
     dict
         Dictionary containing the initial images, the optimized images, and the optimization results.
     """
-    paths_geometry, paths_energy, paths_velocity, paths_force, paths_integral = \
-        optimize_MEP(images=images, potential_params=potential_params, path_params=path_params, integrator_params=integrator_params, optimizer_params=optimizer_params)
-    final_images = [images[0].copy() for _ in range(len(paths_geometry))]
-    for i, atoms in enumerate(paths_geometry):
-        final_images[i].set_positions(atoms.get_positions().reshape(-1, 3))
+    paths_geometry, paths_energy, paths_velocity, paths_force, paths_integral = optimize_MEP(**pathopt_params)
     return {
-        "initial_images": images,
-        "optimized_images": paths_geometry,
+        "geometry": paths_geometry,
         "energy": paths_energy,
         "velocity": paths_velocity,
         "force": paths_force,
