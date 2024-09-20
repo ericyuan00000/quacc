@@ -27,8 +27,7 @@ import rmsd
 from quacc import job
 from quacc.recipes.mlp._base import pick_calculator
 from quacc.runners.ase import Runner
-from quacc.schemas.ase import Summarize
-from quacc.schemas.ase import summarize_neb_run
+from quacc.schemas.ase import Summarize, NebSummarize
 from quacc.utils.dicts import recursive_dict_merge
 
 has_geodesic_interpolate = bool(find_spec("geodesic_interpolate"))
@@ -122,27 +121,53 @@ def neb_job(
     run_flags = recursive_dict_merge(run_defaults, run_params)
     
     calc = pick_calculator(method, **calc_kwargs)
+    additional_fields = {"neb_flags": neb_flags, "opt_flags": opt_flags, "run_flags": run_flags}
 
     dyn = Runner(images, calc).run_neb(neb_flags, opt_flags, run_flags)
 
-    # return Summarize(
-    #     additional_fields={"name": f"{method} NEB"} | (neb_kwargs or {})
-    # ).run(dyn)
+    return NebSummarize(
+        additional_fields={"name": f"{method} NEB"} | additional_fields
+    ).opt(dyn)
 
-    return {
-        "initial_images": images,
-        "neb_results": summarize_neb_run(
-            dyn,
-            n_images=len(images),
-            additional_fields={
-                "name": f"{method} NEB",
-                "method": method,
-                "neb_flags": neb_flags,
-                "opt_flags": opt_flags,
-                "run_flags": run_flags,
-            },
-        ),
-    }
+    # return {
+    #     "initial_images": images,
+    #     "neb_results": summarize_neb_run(
+    #         dyn,
+    #         n_images=len(images),
+    #         additional_fields={
+    #             "name": f"{method} NEB",
+    #             "method": method,
+    #             "neb_flags": neb_flags,
+    #             "opt_flags": opt_flags,
+    #             "run_flags": run_flags,
+    #         },
+    #     ),
+    # }
+
+# @job
+# def pathopt_job(
+#     images: list[Atoms],
+#     method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet"],
+#     opt_params: dict[str, Any] | None = None,
+#     **calc_kwargs,
+# ):
+    
+#     calc = pick_calculator(method, **calc_kwargs)
+
+#     return {
+#         "initial_images": images,
+#         "pathopt_results": {
+#             "
+#         }
+#             dyn,
+#             n_images=len(images),
+#             additional_fields={
+#                 "name": f"{method} path opt",
+#                 "method": method,
+#                 "opt_flags": opt_flags,
+#             },
+#         ),
+#     }
 
 
 def geodesic_interpolate_wrapper(

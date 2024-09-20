@@ -231,9 +231,11 @@ class Runner(BaseRunner):
             full_run_kwargs.pop("fmax")
         try:
             with traj, optimizer(self.atoms, **merged_optimizer_kwargs) as dyn:
-                if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics, NEBOptimizer)):
+                if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics)):
                     # https://gitlab.coms/ase/ase/-/issues/1475
                     # https://gitlab.com/ase/ase/-/issues/1497
+                    dyn.run(**full_run_kwargs)
+                elif issubclass(optimizer, NEBOptimizer):
                     dyn.run(**full_run_kwargs)
                 else:
                     for i, _ in enumerate(dyn.irun(**full_run_kwargs)):
