@@ -37,8 +37,8 @@ if has_geodesic_interpolate:
     from geodesic_interpolate.interpolation import redistribute
 
 # import sys
-# sys.path.append('/global/homes/e/ericyuan/GitHub')
-# from transbymep
+# sys.path.append('/global/homes/e/ericyuan/GitHub/transbymep')
+from transbymep import optimize_MEP
 
 if TYPE_CHECKING:
     from typing import Any, Literal
@@ -148,30 +148,16 @@ def neb_job(
     #     ),
     # }
 
-# @job
-# def pathopt_job(
-#     images: list[Atoms],
-#     method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet"],
-#     opt_params: dict[str, Any] | None = None,
-#     **calc_kwargs,
-# ):
-    
-#     calc = pick_calculator(method, **calc_kwargs)
-
-#     return {
-#         "initial_images": images,
-#         "pathopt_results": {
-#             "
-#         }
-#             dyn,
-#             n_images=len(images),
-#             additional_fields={
-#                 "name": f"{method} path opt",
-#                 "method": method,
-#                 "opt_flags": opt_flags,
-#             },
-#         ),
-#     }
+@job
+def pathopt_job(
+    images: list[Atoms],
+    potential_params: dict[str, Any] | None = None,
+    path_params: dict[str, Any] | None = None,
+    integrator_params: dict[str, Any] | None = None,
+    optimizer_params: dict[str, Any] | None = None,
+):
+    output = pathopt_wrapper(images, potential_params, path_params, integrator_params, optimizer_params)
+    return output | {"potential_params": potential_params, "path_params": path_params, "integrator_params": integrator_params, "optimizer_params": optimizer_params}
 
 
 def geodesic_interpolate_wrapper(
@@ -263,35 +249,42 @@ def geodesic_interpolate_wrapper(
         for geom in geodesic_smoother.path
     ]
 
-# def pathopt_wrapper(
-#     images: list[Atoms],
-#     method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet"],
-#     opt_params: dict[str, Any] | None = None,
-#     **calc_kwargs,
-# ):
-#     """
-#     Optimize a path of images using a machine-learned potential.
+def pathopt_wrapper(
+    images: list[Atoms],
+    potential_params: dict[str, Any] | None = None,
+    path_params: dict[str, Any] | None = None,
+    integrator_params: dict[str, Any] | None = None,
+    optimizer_params: dict[str, Any] | None = None,
+):
+    """
+    Optimize a path of images using a machine-learned potential.
 
-#     Parameters
-#     ----------
-#     images
-#         List of Atoms objects representing the path of images.
-#     method
-#         The method to use for the optimization.
-#     opt_params
-#         Additional parameters for the optimization method.
-#     calc_kwargs
-#         Additional parameters for the calculator.
+    Parameters
+    ----------
+    images
+        List of Atoms objects representing the path of images.
+    method
+        The method to use for the optimization.
+    opt_params
+        Additional parameters for the optimization method.
+    calc_kwargs
+        Additional parameters for the calculator.
 
-#     Returns
-#     -------
-#     dict
-#         Dictionary containing the initial images, the optimized images, and the optimization results.
-#     """
-#     calc = pick_calculator(method, **calc_kwargs)
-#     dyn = Runner(images, calc).run_pathopt(opt_params)
-#     return {
-#         "initial_images": images,
-#         "optimized_images": dyn.images,
-#         "pathopt_results": Summarize.run(dyn),
-#     }
+    Returns
+    -------
+    dict
+        Dictionary containing the initial images, the optimized images, and the optimization results.
+    """
+    paths_geometry, paths_energy, paths_velocity, paths_force, paths_integral = \
+        optimize_MEP(images=images, potential_params=potential_params, path_params=path_params, integrator_params=integrator_params, optimizer_params=optimizer_params)
+    final_images = [images[0].copy() for _ in range(len(paths_geometry))]
+    for i, atoms in enumerate(paths_geometry):
+        final_images[i].set_positions(atoms.get_positions().reshape(-1, 3))
+    return {
+        "initial_images": images,
+        "optimized_images": paths_geometry,
+        "energy": paths_energy,
+        "velocity": paths_velocity,
+        "force": paths_force,
+        "integral": paths_integral,
+    }
