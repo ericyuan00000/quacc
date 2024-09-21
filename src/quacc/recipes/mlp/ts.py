@@ -164,11 +164,34 @@ def pathopt_job(
         "num_optimizer_iterations": num_optimizer_iterations,
     }
     output = pathopt_wrapper(**pathopt_params)
+    
     output["initial_images"] = images
-    final_images = [images[0].copy() for _ in range(len(output["geometry"][-1]))]
-    for geom, atoms in zip(output["geometry"][-1], final_images):
+    initial_path = [images[0].copy() for _ in range(len(output["geometry"][0]))]
+    for geom, atoms in zip(output["geometry"][0], initial_path):
         atoms.set_positions(geom.reshape(-1, 3))
-    output["final_images"] = final_images
+    output["initial_path"] = initial_path
+    output["initial_path_results"] = {
+        "energy": output["energy"][0],
+        "force": output["force"][0],
+        "velocity": output["velocity"][0],
+        "integral": output["integral"][0],
+    }
+    final_path = [images[0].copy() for _ in range(len(output["geometry"][-1]))]
+    for geom, atoms in zip(output["geometry"][-1], final_path):
+        atoms.set_positions(geom.reshape(-1, 3))
+    output["final_path"] = final_path
+    output["final_path_results"] = {
+        "energy": output["energy"][-1],
+        "force": output["force"][-1],
+        "velocity": output["velocity"][-1],
+        "integral": output["integral"][-1],
+    }
+
+    output.pop("geometry")
+    output.pop("energy")
+    output.pop("velocity")
+    output.pop("force")
+
     return output | pathopt_params
 
 
@@ -281,11 +304,12 @@ def pathopt_wrapper(**pathopt_params):
     dict
         Dictionary containing the initial images, the optimized images, and the optimization results.
     """
-    paths_geometry, paths_energy, paths_velocity, paths_force, paths_integral = optimize_MEP(**pathopt_params)
+    paths_geometry, paths_energy, paths_velocity, paths_force, paths_integral, paths_neval = optimize_MEP(**pathopt_params)
     return {
         "geometry": paths_geometry,
         "energy": paths_energy,
         "velocity": paths_velocity,
         "force": paths_force,
         "integral": paths_integral,
+        "neval": paths_neval,
     }
