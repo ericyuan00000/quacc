@@ -78,12 +78,12 @@ def interpolate_job(
     interpolation_method = interpolate_flag.pop("interpolation_method")
     n_images = interpolate_flag.pop("n_images")
 
-    if alignment_method == "kabsch":
-        product_atoms.set_positions(rmsd.kabsch_rotate(product_atoms.get_positions(), reactant_atoms.get_positions()))
+    # if alignment_method == "kabsch":
+    #     product_atoms.set_positions(rmsd.kabsch_rotate(product_atoms.get_positions(), reactant_atoms.get_positions()))
 
     if interpolation_method == "geodesic":
         images = geodesic_interpolate_wrapper(
-            reactant_atoms, product_atoms, **interpolate_flag
+            reactant_atoms, product_atoms, n_images, **interpolate_flag
         )
     else:
         images = [reactant_atoms]
