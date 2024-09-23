@@ -71,10 +71,11 @@ def interpolate_job(
         Dictionary of results from [quacc.schemas.ase.Summarize.run][].
         See the type-hint for the data structure.
     """
-    interpolate_defaults = {"alignment_method": "kabsch", "interpolation_method": "geodesic", "n_images": 10}
+    # interpolate_defaults = {"alignment_method": "kabsch", "interpolation_method": "geodesic", "n_images": 10}
+    interpolate_defaults = {"interpolation_method": "geodesic", "n_images": 10}
     interpolate_flag = recursive_dict_merge(interpolate_defaults, interpolate_params)
 
-    alignment_method = interpolate_flag.pop("alignment_method")
+    # alignment_method = interpolate_flag.pop("alignment_method")
     interpolation_method = interpolate_flag.pop("interpolation_method")
     n_images = interpolate_flag.pop("n_images")
 
@@ -99,7 +100,7 @@ def interpolate_job(
     return {
         "initial_images": [reactant_atoms, product_atoms],
         "interpolated_images": images,
-        "alignment_method": alignment_method,
+        # "alignment_method": alignment_method,
         "interpolation_method": interpolation_method,
         "n_images": n_images,
     } | interpolate_flag
@@ -153,6 +154,7 @@ def pathopt_job(
     path_params: dict[str, Any] | None = None,
     integrator_params: dict[str, Any] | None = None,
     optimizer_params: dict[str, Any] | None = None,
+    scheduler_params: dict[str, Any] | None = None,
     num_optimizer_iterations: int = 1000,
 ):
     pathopt_params = {
@@ -161,6 +163,7 @@ def pathopt_job(
         "path_params": path_params,
         "integrator_params": integrator_params,
         "optimizer_params": optimizer_params,
+        "scheduler_params": scheduler_params,
         "num_optimizer_iterations": num_optimizer_iterations,
     }
     output = pathopt_wrapper(**pathopt_params)
