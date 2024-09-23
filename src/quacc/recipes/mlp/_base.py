@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Literal
 
+    from ase import Atoms
     from ase.calculators.calculator import Calculator
 
 LOGGER = getLogger(__name__)
@@ -16,7 +17,7 @@ LOGGER = getLogger(__name__)
 
 @lru_cache
 def pick_calculator(
-    method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet"], **kwargs
+    method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet", "escaip"], **kwargs
 ) -> Calculator:
     """
     Adapted from `matcalc.util.get_universal_calculator`.
@@ -77,6 +78,60 @@ def pick_calculator(
         from newtonnet.utils.ase_interface import MLAseCalculator
 
         calc = MLAseCalculator(**kwargs)
+
+    elif method.lower() == "escaip":
+        import yaml
+        import numpy as np
+        from torch import nn
+        from torch_geometric.data import Data
+        from ase.calculators.calculator import Calculator
+        import sys
+        sys.path.append('/global/homes/e/ericyuan/GitHub')
+        from EScAIP.src import EfficientlyScaledAttentionInteratomicPotential
+        from EScAIP.src import __version__
+
+        class EScAIP(nn.Module):
+            def __init__(self, config_file, checkpoint_file):
+                super().__init__()
+                with open(config_file) as f:
+                    config = yaml.safe_load(f)
+                checkpoint = torch.load(checkpoint_file, map_location='cuda')
+                self.module = EfficientlyScaledAttentionInteratomicPotential(**config['model']).to('cuda')
+                self.load_state_dict(checkpoint['state_dict'])
+                self.normalizers = checkpoint['normalizers']
+                self.eval()
+
+            def forward(self, data):
+                output = self.module(data)
+                for key in output.keys():
+                    output[key] = output[key] * self.normalizers[key]['std'] + self.normalizers[key]['mean']
+                return output
+            
+            def ase_data(self, atoms: Atoms) -> Data:
+                return Data(
+                    atomic_numbers=torch.tensor(atoms.numbers), 
+                    pos=torch.tensor(atoms.positions).float(), 
+                    cell=torch.tensor(np.array(atoms.cell)).float(), 
+                    batch=torch.zeros(len(atoms), dtype=torch.long),
+                    natoms=torch.tensor([len(atoms)]),
+                    num_graphs=1, 
+                ).to('cuda')
+
+        class EScAIPCalculator(Calculator):
+            implemented_properties = ["energy", "forces"]
+
+            def __init__(self, config_file, checkpoint_file, **kwargs):
+                super().__init__(**kwargs)
+                self.model = EScAIP(config_file, checkpoint_file)
+
+            def calculate(self, atoms=None, properties=None, system_changes=None, **kwargs):
+                super().calculate(atoms, properties, system_changes)
+                data = self.model.ase_data(atoms)
+                output = self.model(data)
+                self.results["energy"] = output["energy"].item()
+                self.results["forces"] = output["forces"].detach().cpu().numpy()
+
+        calc = EScAIPCalculator(**kwargs)
 
     else:
         raise ValueError(f"Unrecognized {method=}.")
