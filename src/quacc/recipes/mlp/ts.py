@@ -174,26 +174,32 @@ def pathopt_job(
         atoms.set_positions(geom.reshape(-1, 3))
     output["initial_path"] = initial_path
     output["initial_path_results"] = {
+        "time": output["time"][0],
+        "geometry": output["geometry"][0],
         "energy": output["energy"][0],
-        "force": output["force"][0],
         "velocity": output["velocity"][0],
-        "integral": output["integral"][0],
+        "force": output["force"][0],
+        "loss": output["loss"][0],
     }
     final_path = [images[0].copy() for _ in range(len(output["geometry"][-1]))]
     for geom, atoms in zip(output["geometry"][-1], final_path):
         atoms.set_positions(geom.reshape(-1, 3))
     output["final_path"] = final_path
     output["final_path_results"] = {
+        "time": output["time"][-1],
+        "geometry": output["geometry"][-1],
         "energy": output["energy"][-1],
-        "force": output["force"][-1],
         "velocity": output["velocity"][-1],
-        "integral": output["integral"][-1],
+        "force": output["force"][-1],
+        "loss": output["loss"][-1],
     }
 
     output.pop("geometry")
     output.pop("energy")
     output.pop("velocity")
     output.pop("force")
+    output.pop("time")
+    output.pop("loss")
 
     return output | pathopt_params
 
@@ -307,12 +313,14 @@ def pathopt_wrapper(**pathopt_params):
     dict
         Dictionary containing the initial images, the optimized images, and the optimization results.
     """
-    paths_geometry, paths_energy, paths_velocity, paths_force, paths_integral, paths_neval = optimize_MEP(**pathopt_params)
+    paths_time, paths_geometry, paths_energy, paths_velocity, paths_force, paths_loss, paths_integral, paths_neval = optimize_MEP(**pathopt_params)
     return {
+        "time": paths_time,
         "geometry": paths_geometry,
         "energy": paths_energy,
         "velocity": paths_velocity,
         "force": paths_force,
+        "loss": paths_loss,
         "integral": paths_integral,
         "neval": paths_neval,
     }
