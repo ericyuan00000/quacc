@@ -80,58 +80,72 @@ def pick_calculator(
         calc = MLAseCalculator(**kwargs)
 
     elif method.lower() == "escaip":
-        import yaml
-        import numpy as np
-        from torch import nn
-        from torch_geometric.data import Data
-        from ase.calculators.calculator import Calculator
+        # import yaml
+        # import numpy as np
+        # from torch import nn
+        # from torch_geometric.data import Data
+        # from ase.calculators.calculator import Calculator
+        from fairchem.core.common.relaxation.ase_utils import OCPCalculator
+        from fairchem.core import __version__
         import sys
-        sys.path.append('/global/homes/e/ericyuan/GitHub')
-        from EScAIP.src import EfficientlyScaledAttentionInteratomicPotential
-        from EScAIP.src import __version__
+        # sys.path.append('/global/homes/e/ericyuan/GitHub')
+        sys.path.append('/global/homes/e/ericyuan/GitHub/EScAIP')
+        # from EScAIP.src import EfficientlyScaledAttentionInteratomicPotential
 
-        class EScAIP(nn.Module):
-            def __init__(self, config_file, checkpoint_file):
-                super().__init__()
-                with open(config_file) as f:
-                    config = yaml.safe_load(f)
-                checkpoint = torch.load(checkpoint_file, map_location='cuda')
-                self.module = EfficientlyScaledAttentionInteratomicPotential(**config['model']).to('cuda')
-                self.load_state_dict(checkpoint['state_dict'])
-                self.normalizers = checkpoint['normalizers']
-                self.eval()
+        # class EScAIP(nn.Module):
+        #     def __init__(self, config_file, checkpoint_file):
+        #         super().__init__()
+        #         with open(config_file) as f:
+        #             config = yaml.safe_load(f)
+        #         checkpoint = torch.load(checkpoint_file, map_location='cuda')
+        #         self.module = EfficientlyScaledAttentionInteratomicPotential(**config['model']).to('cuda')
+        #         self.load_state_dict(checkpoint['state_dict'])
+        #         self.normalizers = checkpoint['normalizers']
+        #         self.eval()
 
-            def forward(self, data):
-                output = self.module(data)
-                for key in output.keys():
-                    output[key] = output[key] * self.normalizers[key]['std'] + self.normalizers[key]['mean']
-                return output
+        #     def forward(self, data):
+        #         output = self.module(data)
+        #         for key in output.keys():
+        #             output[key] = output[key] * self.normalizers[key]['std'] + self.normalizers[key]['mean']
+        #         return output
             
-            def ase_data(self, atoms: Atoms) -> Data:
-                return Data(
-                    atomic_numbers=torch.tensor(atoms.numbers), 
-                    pos=torch.tensor(atoms.positions).float(), 
-                    cell=torch.tensor(np.array(atoms.cell)).float(), 
-                    batch=torch.zeros(len(atoms), dtype=torch.long),
-                    natoms=torch.tensor([len(atoms)]),
-                    num_graphs=1, 
-                ).to('cuda')
+        #     def ase_data(self, atoms: Atoms) -> Data:
+        #         return Data(
+        #             atomic_numbers=torch.tensor(atoms.numbers),
+        #             pos=torch.tensor(atoms.positions).float(),
+        #             cell=torch.tensor(np.array(atoms.cell)).float(),
+        #             batch=torch.tensor([0 for _ in range(len(atoms))], dtype=torch.long),
+        #             natoms=torch.tensor([len(atoms)]),
+        #             num_graphs=1,
+        #         )
+            
+        #     def ase_data_batch(self, atoms_list: list[Atoms]) -> Data:
+        #         return Data(
+        #             atomic_numbers=torch.cat([torch.tensor(atoms.numbers) for atoms in atoms_list]), 
+        #             pos=torch.cat([torch.tensor(atoms.positions).float() for atoms in atoms_list]), 
+        #             cell=torch.cat([torch.tensor(np.array(atoms.cell)).float() for atoms in atoms_list]), 
+        #             batch=torch.tensor([i for i, atoms in enumerate(atoms_list) for _ in range(len(atoms))], dtype=torch.long),
+        #             natoms=torch.tensor([len(atoms) for atoms in atoms_list]),
+        #             num_graphs=len(atoms_list),
+        #         )
 
-        class EScAIPCalculator(Calculator):
-            implemented_properties = ["energy", "forces"]
+        # class EScAIPCalculator(Calculator):
+        #     implemented_properties = ["energy", "forces"]
 
-            def __init__(self, config_file, checkpoint_file, **kwargs):
-                super().__init__(**kwargs)
-                self.model = EScAIP(config_file, checkpoint_file)
+        #     def __init__(self, config_file, checkpoint_file, **kwargs):
+        #         super().__init__(**kwargs)
+        #         self.model = EScAIP(config_file, checkpoint_file)
 
-            def calculate(self, atoms=None, properties=None, system_changes=None, **kwargs):
-                super().calculate(atoms, properties, system_changes)
-                data = self.model.ase_data(atoms)
-                output = self.model(data)
-                self.results["energy"] = output["energy"].item()
-                self.results["forces"] = output["forces"].detach().cpu().numpy()
+        #     def calculate(self, atoms=None, properties=None, system_changes=None, **kwargs):
+        #         super().calculate(atoms, properties, system_changes)
+        #         data = self.model.ase_data(atoms)
+        #         output = self.model(data)
+        #         self.results["energy"] = output["energy"].item()
+        #         self.results["forces"] = output["forces"].detach().cpu().numpy()
 
-        calc = EScAIPCalculator(**kwargs)
+        # calc = EScAIPCalculator(**kwargs)
+
+        calc = OCPCalculator(**kwargs)
 
     else:
         raise ValueError(f"Unrecognized {method=}.")
