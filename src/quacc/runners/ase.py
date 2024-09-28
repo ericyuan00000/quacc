@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from ase.atoms import Atoms
     from ase.calculators.calculator import Calculator
     from ase.optimize.optimize import Dynamics
+    from ase.mep.neb import BaseNEB
 
     from quacc.types import (
         Filenames,
@@ -251,6 +252,7 @@ class Runner(BaseRunner):
                         if fn_hook:
                             fn_hook(dyn)
         except Exception as exception:
+            print(exception)
             terminate(self.tmpdir, exception)
 
         # Perform cleanup operations
@@ -298,6 +300,8 @@ class Runner(BaseRunner):
     
     def run_neb(
         self, 
+        neb: BaseNEB,
+        optimizer: Dynamics,
         neb_kwargs: dict[str, Any] | None = None, 
         optimizer_kwargs: dict[str, Any] | None = None, 
         run_kwargs: dict[str, Any] | None = None,
@@ -318,15 +322,17 @@ class Runner(BaseRunner):
         Dynamics
             The ASE Dynamics object following an NEB calculation.
         """
-        self.atoms = NEB(self.atoms, **(neb_kwargs or {}))
+        # self.atoms = NEB(self.atoms, **(neb_kwargs or {}))
+        self.atoms = neb(self.atoms, **(neb_kwargs or {}))
 
-        dynamics = NEBOptimizer
+        # dynamics = NEBOptimizer
+        # dynamics = optimizer
 
         optimizer_kwargs = optimizer_kwargs or {}
         optimizer_kwargs["logfile"] = self.tmpdir / "neb.log"
 
         return self.run_opt(
-            optimizer=dynamics,
+            optimizer=optimizer,
             optimizer_kwargs=optimizer_kwargs,
             run_kwargs=run_kwargs,
         )

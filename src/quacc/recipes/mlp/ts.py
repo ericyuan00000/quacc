@@ -21,7 +21,7 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 from ase.atoms import Atoms
-from ase.mep.neb import NEB
+from ase.mep.neb import NEB, NEBOptimizer
 import rmsd
 
 from quacc import job
@@ -32,11 +32,8 @@ from quacc.utils.dicts import recursive_dict_merge
 
 has_geodesic_interpolate = bool(find_spec("geodesic_interpolate"))
 
-if has_geodesic_interpolate:
-    from geodesic_interpolate.geodesic import Geodesic
-    from geodesic_interpolate.interpolation import redistribute
+has_transbymep = bool(find_spec("transbymep"))
 
-from transbymep import optimize_MEP
 
 if TYPE_CHECKING:
     from typing import Any, Literal
@@ -44,6 +41,9 @@ if TYPE_CHECKING:
     from ase.atoms import Atoms
 
     from quacc.types import OptParams, OptSchema, RunSchema, NebSchema
+
+# @job
+# def 
 
 @job
 def interpolate_job(
@@ -114,11 +114,13 @@ def neb_job(
     run_params: dict[str, Any] | None = None,
     **calc_kwargs,
 ) -> NebSchema:
-    neb_defaults = {"climb": True}
+    neb_defaults = {"climb": True, "neb": NEB}
     neb_flags = recursive_dict_merge(neb_defaults, neb_params)
+    neb = neb_flags.pop("neb")
 
-    opt_defaults = {}
+    opt_defaults = {"optimizer": NEBOptimizer}
     opt_flags = recursive_dict_merge(opt_defaults, opt_params)
+    opt = opt_flags.pop("optimizer")
 
     run_defaults = {"fmax": 0.05}
     run_flags = recursive_dict_merge(run_defaults, run_params)
@@ -126,7 +128,7 @@ def neb_job(
     calc = pick_calculator(method, **calc_kwargs)
     additional_fields = {"neb_flags": neb_flags, "opt_flags": opt_flags, "run_flags": run_flags}
 
-    dyn = Runner(images, calc).run_neb(neb_flags, opt_flags, run_flags)
+    dyn = Runner(images, calc).run_neb(neb, opt, neb_flags, opt_flags, run_flags)
 
     return Summarize(
         additional_fields={"name": f"{method} NEB"} | additional_fields
@@ -155,6 +157,7 @@ def pathopt_job(
     integrator_params: dict[str, Any] | None = None,
     optimizer_params: dict[str, Any] | None = None,
     scheduler_params: dict[str, Any] | None = None,
+    loss_scheduler_params: dict[str, Any] | None = None,
     num_optimizer_iterations: int = 1000,
 ):
     pathopt_params = {
@@ -164,6 +167,7 @@ def pathopt_job(
         "integrator_params": integrator_params,
         "optimizer_params": optimizer_params,
         "scheduler_params": scheduler_params,
+        "loss_scheduler_params": loss_scheduler_params,
         "num_optimizer_iterations": num_optimizer_iterations,
     }
     output = pathopt_wrapper(**pathopt_params)
@@ -257,6 +261,9 @@ def geodesic_interpolate_wrapper(
     list[Atoms]
         A list of ASE Atoms objects representing the smoothed path between the reactant and product geometries.
     """
+    from geodesic_interpolate.geodesic import Geodesic
+    from geodesic_interpolate.interpolation import redistribute
+
     reactant = reactant.copy()
     product = product.copy()
 
@@ -313,6 +320,8 @@ def pathopt_wrapper(**pathopt_params):
     dict
         Dictionary containing the initial images, the optimized images, and the optimization results.
     """
+    from transbymep import optimize_MEP
+
     paths_time, paths_geometry, paths_energy, paths_velocity, paths_force, paths_loss, paths_integral, paths_neval = optimize_MEP(**pathopt_params)
     return {
         "time": paths_time,
