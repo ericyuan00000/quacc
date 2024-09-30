@@ -81,6 +81,7 @@ class Runner(BaseRunner):
         None
         """
         self.atoms = copy_atoms(atoms)
+        self.calculator = calculator
         if isinstance(self.atoms, list):
             for a in self.atoms:
                 a.calc = deepcopy(calculator)
@@ -114,10 +115,11 @@ class Runner(BaseRunner):
             properties = ["energy"]
 
         # Run calculation
-        try:
-            self.atoms.calc.calculate(self.atoms, properties, calculator.all_changes)
-        except Exception as exception:
-            terminate(self.tmpdir, exception)
+        # try:
+        self.atoms.calc.calculate(self.atoms, properties, calculator.all_changes)
+        # except Exception as exception:
+        #     raise exception
+        #     terminate(self.tmpdir, exception)
 
         # Most ASE calculators do not update the atoms object in-place with a call
         # to .get_potential_energy(), which is important if an internal optimizer is
@@ -230,30 +232,30 @@ class Runner(BaseRunner):
         full_run_kwargs = {"fmax": fmax, "steps": max_steps, **run_kwargs}
         if issubclass(optimizer, MolecularDynamics):
             full_run_kwargs.pop("fmax")
-        try:
-            with traj, optimizer(self.atoms, **merged_optimizer_kwargs) as dyn:
-                if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics)):
-                    # https://gitlab.coms/ase/ase/-/issues/1475
-                    # https://gitlab.com/ase/ase/-/issues/1497
-                    dyn.run(**full_run_kwargs)
-                elif issubclass(optimizer, NEBOptimizer):
-                    dyn.run(**full_run_kwargs)
-                else:
-                    for i, _ in enumerate(dyn.irun(**full_run_kwargs)):
-                        if store_intermediate_results:
-                            self._copy_intermediate_files(
-                                i,
-                                files_to_ignore=[
-                                    traj_file,
-                                    merged_optimizer_kwargs.get("restart"),
-                                    merged_optimizer_kwargs.get("logfile"),
-                                ],
-                            )
-                        if fn_hook:
-                            fn_hook(dyn)
-        except Exception as exception:
-            print(exception)
-            terminate(self.tmpdir, exception)
+        # try:
+        with traj, optimizer(self.atoms, **merged_optimizer_kwargs) as dyn:
+            if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics)):
+                # https://gitlab.coms/ase/ase/-/issues/1475
+                # https://gitlab.com/ase/ase/-/issues/1497
+                dyn.run(**full_run_kwargs)
+            elif issubclass(optimizer, NEBOptimizer):
+                dyn.run(**full_run_kwargs)
+            else:
+                for i, _ in enumerate(dyn.irun(**full_run_kwargs)):
+                    if store_intermediate_results:
+                        self._copy_intermediate_files(
+                            i,
+                            files_to_ignore=[
+                                traj_file,
+                                merged_optimizer_kwargs.get("restart"),
+                                merged_optimizer_kwargs.get("logfile"),
+                            ],
+                        )
+                    if fn_hook:
+                        fn_hook(dyn)
+        # except Exception as exception:
+        #     print(exception)
+        #     terminate(self.tmpdir, exception)
 
         # Perform cleanup operations
         self.cleanup()

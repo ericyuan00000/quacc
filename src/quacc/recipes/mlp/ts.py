@@ -28,6 +28,7 @@ from quacc import job
 from quacc.recipes.mlp._base import pick_calculator
 from quacc.runners.ase import Runner
 from quacc.schemas.ase import Summarize
+from quacc.schemas.atoms import metadata_to_atoms
 from quacc.utils.dicts import recursive_dict_merge
 
 has_geodesic_interpolate = bool(find_spec("geodesic_interpolate"))
@@ -133,6 +134,7 @@ def neb_job(
     return Summarize(
         additional_fields={"name": f"{method} NEB"} | additional_fields
     ).neb(dyn)
+    # ).neb(dyn, n_images=len(images))
 
     # return {
     #     "initial_images": images,

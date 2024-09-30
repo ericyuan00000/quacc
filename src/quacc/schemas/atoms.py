@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING
 
 from emmet.core.structure import MoleculeMetadata, StructureMetadata
 from pymatgen.io.ase import AseAtomsAdaptor
+import json
+import numpy as np
+from ase import Atoms
 
 from quacc.atoms.core import (
     copy_atoms,
@@ -94,3 +97,9 @@ def atoms_to_metadata(
     results["atoms"] = atoms
 
     return metadata | results | additional_fields
+
+
+def metadata_to_atoms(atoms_dict: str) -> Atoms:
+    atoms_json = json.loads(atoms_dict['atoms_json'])
+    atoms_param = {k: np.array(v['__ndarray__'][2]).astype(v['__ndarray__'][1]).reshape(v['__ndarray__'][0]) for k, v in atoms_json.items() if '__ndarray__' in v}
+    atoms = Atoms(**atoms_param)

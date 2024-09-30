@@ -238,6 +238,7 @@ class Summarize:
     def neb(
         self,
         dyn: Optimizer,
+        # n_images: int,
         trajectory: list[Atoms] | None = None,
         check_convergence: bool | DefaultSetting = QuaccDefault,
         store: Store | None | DefaultSetting = QuaccDefault,
@@ -282,14 +283,41 @@ class Summarize:
         else:
             atoms_trajectory = read(dyn.trajectory.filename, index=":")
 
-        n_images = dyn.neb.nimages
+        neb = dyn.atoms
+        # n_images = dyn.neb.nimages
+        n_images = neb.nimages
         n_iter = len(atoms_trajectory) // n_images
 
+        from fairchem.core.datasets import data_list_collater
+        from torch.utils.data import DataLoader
+        def calculate_results(images):
+            energies_calcd = []
+            forces = []
+            dataset = neb.a2g.convert_all(images, disable_tqdm=True)
+            dataloader = DataLoader(
+                dataset,
+                batch_size=neb.batch_size,
+                collate_fn=data_list_collater,
+                shuffle=False,
+                num_workers=2,
+            )
+            for batch in dataloader:
+                predictions = neb.trainer.predict(
+                    batch, per_image=False, disable_tqdm=True
+                )
+                energies_calcd.extend(predictions["energy"].flatten().tolist())
+                forces.extend(predictions["forces"].cpu().numpy())
+            energies = np.array(energies_calcd)
+            forces = np.array(forces)
+            return energies, forces
         initial_trajectory = atoms_trajectory[0:n_images]
-        initial_trajectory_results = [atoms.calc.results for atoms in initial_trajectory]
+        # initial_trajectory_results = [atoms.calc.results for atoms in initial_trajectory]
+        initial_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(initial_trajectory))]
         final_trajectory = atoms_trajectory[-n_images:]
-        final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
-        directory = self.directory or atoms_trajectory[0].calc.directory
+        # final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
+        final_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(final_trajectory))]
+        # directory = self.directory or atoms_trajectory[0].calc.directory
+        directory = dyn.trajectory.filename
 
         # Check convergence
         # is_converged = dyn.converged()
@@ -325,7 +353,7 @@ class Summarize:
 
         return finalize_dict(
             unsorted_task_doc,
-            directory=directory,
+            # directory=directory,
             gzip_file=self._settings.GZIP_FILES,
             store=store,
         )
