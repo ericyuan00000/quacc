@@ -82,11 +82,11 @@ class Runner(BaseRunner):
         """
         self.atoms = copy_atoms(atoms)
         self.calculator = calculator
-        if isinstance(self.atoms, list):
-            for a in self.atoms:
-                a.calc = deepcopy(calculator)
-        else:
+        if isinstance(self.atoms, Atoms):
             self.atoms.calc = calculator
+        # elif isinstance(self.atoms, list):
+        #     for a in self.atoms:
+        #         a.calc = deepcopy(calculator)
         self.copy_files = copy_files
         self.setup()
 
