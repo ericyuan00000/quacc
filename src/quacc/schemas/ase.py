@@ -311,11 +311,11 @@ class Summarize:
             forces = np.array(forces)
             return energies, forces
         initial_trajectory = atoms_trajectory[0:n_images]
-        # initial_trajectory_results = [atoms.calc.results for atoms in initial_trajectory]
-        initial_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(initial_trajectory))]
+        initial_trajectory_results = [atoms.calc.results for atoms in initial_trajectory]
+        # initial_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(initial_trajectory))]
         final_trajectory = atoms_trajectory[-n_images:]
-        # final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
-        final_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(final_trajectory))]
+        final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
+        # final_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(final_trajectory))]
         # directory = self.directory or atoms_trajectory[0].calc.directory
         directory = dyn.trajectory.filename
 
