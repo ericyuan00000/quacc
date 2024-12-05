@@ -118,6 +118,7 @@ def neb_job(
     neb_defaults = {"climb": True, "neb": NEB}
     neb_flags = recursive_dict_merge(neb_defaults, neb_params)
     neb = neb_flags.pop("neb")
+    images = neb(images, **neb_flags)
 
     opt_defaults = {"optimizer": NEBOptimizer}
     opt_flags = recursive_dict_merge(opt_defaults, opt_params)
@@ -129,7 +130,8 @@ def neb_job(
     calc = pick_calculator(method, **calc_kwargs)
     additional_fields = {"neb_flags": neb_flags, "opt_flags": opt_flags, "run_flags": run_flags}
 
-    dyn = Runner(images, calc).run_neb(neb, opt, neb_flags, opt_flags, run_flags)
+    # dyn = Runner(images, calc).run_neb(neb, opt, neb_flags, opt_flags, run_flags)
+    dyn = Runner(images, calc).run_neb(opt, opt_flags, run_flags)
 
     return Summarize(
         additional_fields={"name": f"{method} NEB"} | additional_fields
@@ -161,6 +163,7 @@ def pathopt_job(
     scheduler_params: dict[str, Any] | None = None,
     loss_scheduler_params: dict[str, Any] | None = None,
     num_optimizer_iterations: int = 1000,
+    **kwargs,
 ):
     pathopt_params = {
         "images": images,
@@ -171,6 +174,7 @@ def pathopt_job(
         "scheduler_params": scheduler_params,
         "loss_scheduler_params": loss_scheduler_params,
         "num_optimizer_iterations": num_optimizer_iterations,
+        **kwargs,
     }
     output = pathopt_wrapper(**pathopt_params)
     
@@ -185,7 +189,7 @@ def pathopt_job(
         "energy": output["energy"][0],
         "velocity": output["velocity"][0],
         "force": output["force"][0],
-        "loss": output["loss"][0],
+        # "loss": output["loss"][0],
     }
     final_path = [images[0].copy() for _ in range(len(output["geometry"][-1]))]
     for geom, atoms in zip(output["geometry"][-1], final_path):
@@ -197,7 +201,7 @@ def pathopt_job(
         "energy": output["energy"][-1],
         "velocity": output["velocity"][-1],
         "force": output["force"][-1],
-        "loss": output["loss"][-1],
+        # "loss": output["loss"][-1],
     }
 
     output.pop("geometry")
@@ -205,7 +209,7 @@ def pathopt_job(
     output.pop("velocity")
     output.pop("force")
     output.pop("time")
-    output.pop("loss")
+    # output.pop("loss")
 
     return output | pathopt_params
 
@@ -324,14 +328,14 @@ def pathopt_wrapper(**pathopt_params):
     """
     from transbymep import optimize_MEP
 
-    paths_time, paths_geometry, paths_energy, paths_velocity, paths_force, paths_loss, paths_integral, paths_neval = optimize_MEP(**pathopt_params)
+    output = optimize_MEP(**pathopt_params)
     return {
-        "time": paths_time,
-        "geometry": paths_geometry,
-        "energy": paths_energy,
-        "velocity": paths_velocity,
-        "force": paths_force,
-        "loss": paths_loss,
-        "integral": paths_integral,
-        "neval": paths_neval,
+        "time": output.paths_time,
+        "geometry": output.paths_geometry,
+        "energy": output.paths_energy,
+        "velocity": output.paths_velocity,
+        "force": output.paths_force,
+        # "loss": output.paths_loss,
+        "integral": output.paths_integral,
+        "neval": output.paths_neval,
     }

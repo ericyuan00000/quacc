@@ -9,6 +9,7 @@ from shutil import copy, copytree
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
+from ase import Atoms
 from ase.calculators import calculator
 from ase.filters import FrechetCellFilter
 from ase.io import Trajectory, read
@@ -21,7 +22,7 @@ from ase.md.velocitydistribution import (
 from ase.optimize import BFGS
 from ase.optimize.sciopt import SciPyOptimizer
 from ase.vibrations import Vibrations
-from ase.mep.neb import NEB, NEBOptimizer
+from ase.mep.neb import BaseNEB, NEBOptimizer
 from monty.dev import requires
 from monty.os.path import zpath
 
@@ -81,12 +82,13 @@ class Runner(BaseRunner):
         None
         """
         self.atoms = copy_atoms(atoms)
-        self.calculator = calculator
+        # self.calculator = calculator
         if isinstance(self.atoms, Atoms):
             self.atoms.calc = calculator
-        # elif isinstance(self.atoms, list):
-        #     for a in self.atoms:
-        #         a.calc = deepcopy(calculator)
+        elif isinstance(self.atoms, BaseNEB):
+            self.atoms.set_calculators(calculator)
+        else:
+            raise ValueError(f"Invalid atoms object type: {type(self.atoms)}. Must be Atoms or NEB.")
         self.copy_files = copy_files
         self.setup()
 
@@ -302,9 +304,9 @@ class Runner(BaseRunner):
     
     def run_neb(
         self, 
-        neb: BaseNEB,
+        # neb: BaseNEB,
         optimizer: Dynamics,
-        neb_kwargs: dict[str, Any] | None = None, 
+        # neb_kwargs: dict[str, Any] | None = None, 
         optimizer_kwargs: dict[str, Any] | None = None, 
         run_kwargs: dict[str, Any] | None = None,
     ) -> Dynamics:
@@ -325,7 +327,7 @@ class Runner(BaseRunner):
             The ASE Dynamics object following an NEB calculation.
         """
         # self.atoms = NEB(self.atoms, **(neb_kwargs or {}))
-        self.atoms = neb(self.atoms, **(neb_kwargs or {}))
+        # self.atoms = neb(self.atoms, **(neb_kwargs or {}))
 
         # dynamics = NEBOptimizer
         # dynamics = optimizer
