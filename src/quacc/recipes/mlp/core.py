@@ -99,6 +99,9 @@ def relax_job(
     """
     opt_defaults = {"fmax": 0.05}
     opt_flags = recursive_dict_merge(opt_defaults, opt_params)
+    if opt_flags["optimizer"] == "Sella":
+        from sella import Sella
+        opt_flags["optimizer"] = Sella
 
     calc = pick_calculator(method, **calc_kwargs)
 
