@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -36,6 +37,8 @@ if TYPE_CHECKING:
         VibSchema,
         VibThermoSchema,
     )
+
+LOGGER = getLogger(__name__)
 
 
 class Summarize:
@@ -270,24 +273,30 @@ class Summarize:
         """
 
         # Check and set up variables
+        LOGGER.info("Summarizing NEB run results.")
         check_convergence = (
             self._settings.CHECK_CONVERGENCE
             if check_convergence == QuaccDefault
             else check_convergence
         )
+        LOGGER.info(f"Check convergence: {check_convergence}")
+        LOGGER.info(f"Store: {store}")
         store = self._settings.STORE if store == QuaccDefault else store
 
         # Get trajectory
+        LOGGER.info("Getting NEB trajectory.")
         if trajectory:
             atoms_trajectory = trajectory
         else:
             atoms_trajectory = read(dyn.trajectory.filename, index=":")
+        LOGGER.info(f"NEB trajectory length: {len(atoms_trajectory)}")
 
         neb = dyn.atoms
         # n_images = dyn.neb.nimages
         n_images = neb.nimages
         n_iter = len(atoms_trajectory) // n_images
 
+        LOGGER.info("Calculating NEB results.")
         # from fairchem.core.datasets import data_list_collater
         # from torch.utils.data import DataLoader
         # def calculate_results(images):
@@ -331,6 +340,7 @@ class Summarize:
         ts_atoms = final_trajectory[ts_index]
 
         # Clean up the opt parameters
+        LOGGER.info("Cleaning up NEB parameters.")
         parameters_opt = dyn.todict()
         parameters_opt.pop("logfile", None)
         parameters_opt.pop("restart", None)
@@ -351,6 +361,7 @@ class Summarize:
         # Create a dictionary of the inputs/outputs
         unsorted_task_doc = opt_fields | self.additional_fields
 
+        LOGGER.info("Finalizing NEB task document.")
         return finalize_dict(
             unsorted_task_doc,
             # directory=directory,
