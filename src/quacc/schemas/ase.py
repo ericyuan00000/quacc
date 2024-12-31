@@ -288,28 +288,28 @@ class Summarize:
         n_images = neb.nimages
         n_iter = len(atoms_trajectory) // n_images
 
-        from fairchem.core.datasets import data_list_collater
-        from torch.utils.data import DataLoader
-        def calculate_results(images):
-            energies_calcd = []
-            forces = []
-            dataset = neb.a2g.convert_all(images, disable_tqdm=True)
-            dataloader = DataLoader(
-                dataset,
-                batch_size=neb.batch_size,
-                collate_fn=data_list_collater,
-                shuffle=False,
-                num_workers=2,
-            )
-            for batch in dataloader:
-                predictions = neb.trainer.predict(
-                    batch, per_image=False, disable_tqdm=True
-                )
-                energies_calcd.extend(predictions["energy"].flatten().tolist())
-                forces.extend(predictions["forces"].cpu().numpy())
-            energies = np.array(energies_calcd)
-            forces = np.array(forces)
-            return energies, forces
+        # from fairchem.core.datasets import data_list_collater
+        # from torch.utils.data import DataLoader
+        # def calculate_results(images):
+        #     energies_calcd = []
+        #     forces = []
+        #     dataset = neb.a2g.convert_all(images, disable_tqdm=True)
+        #     dataloader = DataLoader(
+        #         dataset,
+        #         batch_size=neb.batch_size,
+        #         collate_fn=data_list_collater,
+        #         shuffle=False,
+        #         num_workers=2,
+        #     )
+        #     for batch in dataloader:
+        #         predictions = neb.trainer.predict(
+        #             batch, per_image=False, disable_tqdm=True
+        #         )
+        #         energies_calcd.extend(predictions["energy"].flatten().tolist())
+        #         forces.extend(predictions["forces"].cpu().numpy())
+        #     energies = np.array(energies_calcd)
+        #     forces = np.array(forces)
+        #     return energies, forces
         initial_trajectory = atoms_trajectory[0:n_images]
         initial_trajectory_results = [atoms.calc.results for atoms in initial_trajectory]
         # initial_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(initial_trajectory))]
