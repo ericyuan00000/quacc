@@ -23,6 +23,7 @@ from ase.optimize import BFGS
 from ase.optimize.sciopt import SciPyOptimizer
 from ase.vibrations import Vibrations
 from ase.mep.neb import BaseNEB, NEBOptimizer
+from sella import IRC
 from monty.dev import requires
 from monty.os.path import zpath
 
@@ -211,15 +212,10 @@ class Runner(BaseRunner):
             raise ValueError(msg)
 
         # Handle optimizer kwargs
-        if (
-            issubclass(optimizer, (SciPyOptimizer, MolecularDynamics))
-            or optimizer.__name__ == "IRC"
-        ):
+        if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics, NEBOptimizer, IRC)):
             # https://gitlab.com/ase/ase/-/issues/1476
             # https://gitlab.com/ase/ase/-/merge_requests/3310
             merged_optimizer_kwargs.pop("restart", None)
-        if optimizer.__name__ == "Sella":
-            self._set_sella_kwargs(merged_optimizer_kwargs)
 
         # Define the Trajectory object
         traj_file = self.tmpdir / traj_filename
@@ -236,11 +232,9 @@ class Runner(BaseRunner):
             full_run_kwargs.pop("fmax")
         # try:
         with traj, optimizer(self.atoms, **merged_optimizer_kwargs) as dyn:
-            if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics)):
+            if issubclass(optimizer, (SciPyOptimizer, MolecularDynamics, NEBOptimizer)):
                 # https://gitlab.coms/ase/ase/-/issues/1475
                 # https://gitlab.com/ase/ase/-/issues/1497
-                dyn.run(**full_run_kwargs)
-            elif issubclass(optimizer, NEBOptimizer):
                 dyn.run(**full_run_kwargs)
             else:
                 for i, _ in enumerate(dyn.irun(**full_run_kwargs)):
@@ -427,30 +421,3 @@ class Runner(BaseRunner):
                     copy(item, store_path)
                 elif item.is_dir():
                     copytree(item, store_path / item.name)
-
-    @requires(has_sella, "Sella must be installed. Refer to the quacc documentation.")
-    def _set_sella_kwargs(self, optimizer_kwargs: dict[str, Any]) -> None:
-        """
-        Modifies the `optimizer_kwargs` in-place to address various Sella-related
-        parameters. This function does the following for the specified key/value pairs in
-        `optimizer_kwargs`:
-
-        1. Sets `order = 0` if not specified (i.e. minimization rather than TS
-        by default).
-
-        2. If `internal` is not defined and not `atoms.pbc.any()`, set it to `True`.
-
-        Parameters
-        ----------
-        optimizer_kwargs
-            The kwargs for the Sella optimizer.
-
-        Returns
-        -------
-        None
-        """
-        if "order" not in optimizer_kwargs:
-            optimizer_kwargs["order"] = 0
-
-        if not self.atoms.pbc.any() and "internal" not in optimizer_kwargs:
-            optimizer_kwargs["internal"] = True

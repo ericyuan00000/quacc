@@ -97,11 +97,19 @@ def relax_job(
         Dictionary of results from [quacc.schemas.ase.Summarize.opt][].
         See the type-hint for the data structure.
     """
-    opt_defaults = {"fmax": 0.05}
+    opt_defaults = {"fmax": 0.05, "optimizer_kwargs": {}}
     opt_flags = recursive_dict_merge(opt_defaults, opt_params)
     if opt_flags["optimizer"] == "Sella":
         from sella import Sella
         opt_flags["optimizer"] = Sella
+        custom_hessian = opt_flags["optimizer_kwargs"].pop("custom_hessian", False)
+        if custom_hessian:
+            def get_hessian(atoms):
+                hessian = atoms.calc.results["hessian"]
+                hessian = hessian.reshape(len(atoms) * 3, len(atoms) * 3)
+                return hessian
+            opt_flags["optimizer_kwargs"]["hessian_function"] = get_hessian
+            calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
 
     calc = pick_calculator(method, **calc_kwargs)
 
@@ -109,4 +117,4 @@ def relax_job(
 
     return Summarize(
         additional_fields={"name": f"{method} Relax"} | (additional_fields or {})
-    ).opt(dyn)
+    ).opt(dyn, check_convergence=False)

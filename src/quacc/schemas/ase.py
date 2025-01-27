@@ -284,17 +284,17 @@ class Summarize:
         store = self._settings.STORE if store == QuaccDefault else store
 
         # Get trajectory
-        LOGGER.info("Getting NEB trajectory.")
-        if trajectory:
-            atoms_trajectory = trajectory
-        else:
-            atoms_trajectory = read(dyn.trajectory.filename, index=":")
-        LOGGER.info(f"NEB trajectory length: {len(atoms_trajectory)}")
+        # LOGGER.info("Getting NEB trajectory.")
+        # if trajectory:
+        #     atoms_trajectory = trajectory
+        # else:
+        #     atoms_trajectory = read(dyn.trajectory.filename, index=":")
+        # LOGGER.info(f"NEB trajectory length: {len(atoms_trajectory)}")
 
         neb = dyn.atoms
         # n_images = dyn.neb.nimages
         n_images = neb.nimages
-        n_iter = len(atoms_trajectory) // n_images
+        # n_iter = len(atoms_trajectory) // n_images
 
         LOGGER.info("Calculating NEB results.")
         # from fairchem.core.datasets import data_list_collater
@@ -319,25 +319,32 @@ class Summarize:
         #     energies = np.array(energies_calcd)
         #     forces = np.array(forces)
         #     return energies, forces
-        initial_trajectory = atoms_trajectory[0:n_images]
-        initial_trajectory_results = [atoms.calc.results for atoms in initial_trajectory]
-        # initial_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(initial_trajectory))]
-        final_trajectory = atoms_trajectory[-n_images:]
+        # initial_trajectory = atoms_trajectory[0:n_images]
+        # initial_trajectory_results = [atoms.calc.results for atoms in initial_trajectory]
+        # # initial_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(initial_trajectory))]
+        # assert len(initial_trajectory) == n_images, f"Initial trajectory length {len(initial_trajectory)} does not match n_images {n_images}"
+        # final_trajectory = atoms_trajectory[-n_images:]
+        # final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
+        # # final_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(final_trajectory))]
+        # assert len(final_trajectory) == n_images, f"Final trajectory length {len(final_trajectory)} does not match n_images {n_images}"
+        # # directory = self.directory or atoms_trajectory[0].calc.directory
+        directory = self.directory or neb.calc.directory
+        final_trajectory = neb.images
         final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
-        # final_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(final_trajectory))]
-        # directory = self.directory or atoms_trajectory[0].calc.directory
-        directory = dyn.trajectory.filename
 
         # Check convergence
-        # is_converged = dyn.converged()
-        # if check_convergence and not is_converged:
-        #     msg = f"Optimization did not converge. Refer to {directory}"
-        #     raise RuntimeError(msg)
+        is_converged = dyn.converged()
+        if check_convergence and not is_converged:
+            msg = f"Optimization did not converge. Refer to {directory}"
+            raise RuntimeError(msg)
         
         # Get the highest energy image
         # trajectory_results = [atoms.calc.results for atoms in atoms_trajectory]
         ts_index = np.argmax([result["energy"] for result in final_trajectory_results[1:-1]]) + 1
         ts_atoms = final_trajectory[ts_index]
+
+        # Base task doc
+        base_task_doc = self.run(ts_atoms, None, store=None)
 
         # Clean up the opt parameters
         LOGGER.info("Cleaning up NEB parameters.")
@@ -347,24 +354,23 @@ class Summarize:
 
         opt_fields = {
             "n_images": n_images,
-            "n_iter": n_iter,
-            "initial_trajectory": initial_trajectory,
-            "initial_trajectory_results": initial_trajectory_results,
+            # "n_iter": n_iter,
+            "converged": is_converged,
+            # "initial_trajectory": initial_trajectory,
+            # "initial_trajectory_results": initial_trajectory_results,
             "final_trajectory": final_trajectory,
             "final_trajectory_results": final_trajectory_results,
-            "highest_e_atoms": ts_atoms,
             "parameters_opt": parameters_opt,
             # "trajectory": atoms_trajectory,
             # "trajectory_results": trajectory_results,
         }
 
         # Create a dictionary of the inputs/outputs
-        unsorted_task_doc = opt_fields | self.additional_fields
+        unsorted_task_doc = base_task_doc | opt_fields | self.additional_fields
 
-        LOGGER.info("Finalizing NEB task document.")
         return finalize_dict(
             unsorted_task_doc,
-            # directory=directory,
+            directory,
             gzip_file=self._settings.GZIP_FILES,
             store=store,
         )
