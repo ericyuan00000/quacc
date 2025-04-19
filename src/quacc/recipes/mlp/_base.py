@@ -65,13 +65,18 @@ def pick_calculator(
             kwargs["default_dtype"] = "float64"
         calc = mace_mp(**kwargs)
 
-    elif method.lower() == "mace-off":
+    elif method.lower() == "mace-off" or method.lower() == "mace":
         from mace import __version__
         from mace.calculators import mace_off
 
         if "default_dtype" not in kwargs:
             kwargs["default_dtype"] = "float64"
+        model_path = kwargs.pop("model_path", None)
         calc = mace_off(**kwargs)
+        if model_path is not None:
+            state_dict = torch.load(model_path).get('state_dict')
+            state_dict = {k.replace('potential.', ''): v for k, v in state_dict.items()}
+            calc.models[0].load_state_dict(state_dict)
 
     elif method.lower() == "newtonnet":
         from newtonnet import __version__

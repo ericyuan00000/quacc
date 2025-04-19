@@ -106,10 +106,14 @@ def relax_job(
         if custom_hessian:
             def get_hessian(atoms):
                 hessian = atoms.calc.results["hessian"]
+                # hessian = atoms.calc.get_hessian(atoms)
                 hessian = hessian.reshape(len(atoms) * 3, len(atoms) * 3)
                 return hessian
             opt_flags["optimizer_kwargs"]["hessian_function"] = get_hessian
             calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
+    else:
+        import ase.optimize
+        opt_flags["optimizer"] = getattr(ase.optimize, opt_flags["optimizer"])
 
     calc = pick_calculator(method, **calc_kwargs)
 
