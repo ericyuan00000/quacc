@@ -121,6 +121,13 @@ def pick_calculator(
 
         calc = OCPCalculator(**calc_kwargs)
 
+    elif method.lower() == "newtonnet":
+        from newtonnet import __version__
+        from newtonnet.utils.ase_interface import MLAseCalculator
+
+        newtonnet_model = calc_kwargs.pop("model_path", "ani1x")
+        calc = MLAseCalculator(newtonnet_model, **calc_kwargs)
+
     else:
         raise ValueError(f"Unrecognized {method=}.")
 

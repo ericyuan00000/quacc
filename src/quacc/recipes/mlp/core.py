@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 @job
 def static_job(
     atoms: Atoms,
-    method: Literal["mace-mp-0", "m3gnet", "chgnet", "sevennet", "orb", "fairchem"],
+    method: Literal["mace-mp-0", "m3gnet", "chgnet", "sevennet", "orb", "fairchem", "newtonnet"],
     properties: list[str] | None = None,
     additional_fields: dict[str, Any] | None = None,
     **calc_kwargs,
