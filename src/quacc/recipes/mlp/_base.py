@@ -42,7 +42,35 @@ def pick_calculator(
     if not torch.cuda.is_available():
         LOGGER.warning("CUDA is not available to PyTorch. Calculations will be slow.")
 
-    if method.lower() == "m3gnet":
+    
+    if method.lower() == 'ani':
+        from torchani.calculator import ANICalculator
+        from torchani import __version__
+        calc = ANICalculator(**kwargs)
+    # elif method.lower() == 'chg':
+    #     from chgnet.model.dynamics import chgnet_finetuned, CHGNetCalculator
+    #     model = chgnet_finetuned(device=device)
+    #     sae_path    = weight_path.replace('ts1x-tuned.ckpt','chgnet_ts1x_atom_ref.npy')
+    #     model       = chgnet_finetuned(weight_path,sae_path,device=device)
+    #     calculator  = CHGNetCalculator(model, device=device)
+    elif method.lower() == 'left':
+        from oa_reactdiff.trainer.calculator import LeftNetCalculator
+        from oa_reactdiff import __version__
+        calc = LeftNetCalculator(**kwargs)
+    elif method.lower() == 'mace':
+        from mace.calculators import mace_off, mace_off_finetuned
+        from mace import __version__
+        calc = mace_off_finetuned(**kwargs)
+    elif method.lower() == 'orb':
+        from orb_models.forcefield import pretrained
+        from orb_models.forcefield.calculator import ORBCalculator
+        from orb_models import __version__
+        weights_path = kwargs.pop("weights_path", None)
+        model = pretrained.orb_v2_finetuned(weights_path)
+        calc = ORBCalculator(model, **kwargs)
+
+
+    elif method.lower() == "m3gnet":
         import matgl
         from matgl import __version__
         from matgl.ext.ase import PESCalculator
@@ -73,10 +101,6 @@ def pick_calculator(
             kwargs["default_dtype"] = "float64"
         model_path = kwargs.pop("model_path", None)
         calc = mace_off(**kwargs)
-        if model_path is not None:
-            state_dict = torch.load(model_path).get('state_dict')
-            state_dict = {k.replace('potential.', ''): v for k, v in state_dict.items()}
-            calc.models[0].load_state_dict(state_dict)
 
     elif method.lower() == "newtonnet":
         from newtonnet import __version__
