@@ -299,6 +299,17 @@ def irc_job(
     if opt_flags["optimizer"] == "SellaIRC":
         from sella import IRC
         opt_flags["optimizer"] = IRC
+        custom_hessian = opt_flags["optimizer_kwargs"].pop("custom_hessian", False)
+        if custom_hessian:
+            def get_hessian(atoms):
+                if "hessian" in atoms.calc.results:
+                    hessian = atoms.calc.results["hessian"]
+                else:
+                    hessian = atoms.calc.get_hessian(atoms)
+                hessian = hessian.reshape(len(atoms) * 3, len(atoms) * 3)
+                return hessian
+            opt_flags["optimizer_kwargs"]["hessian_function"] = get_hessian
+            calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
 
     calc = pick_calculator(method, **calc_kwargs)
 
