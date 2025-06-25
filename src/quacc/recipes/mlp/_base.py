@@ -116,9 +116,9 @@ def pick_calculator(
         # from ase.calculators.calculator import Calculator
         from fairchem.core.common.relaxation.ase_utils import OCPCalculator
         from fairchem.core import __version__
-        import sys
+        # import sys
         # sys.path.append('/global/homes/e/ericyuan/GitHub')
-        sys.path.append('/global/homes/e/ericyuan/GitHub/EScAIP')
+        # sys.path.append('/global/homes/e/ericyuan/GitHub/EScAIP')
         # from EScAIP.src import EfficientlyScaledAttentionInteratomicPotential
 
         # class EScAIP(nn.Module):
@@ -175,6 +175,14 @@ def pick_calculator(
         # calc = EScAIPCalculator(**kwargs)
 
         calc = OCPCalculator(**kwargs)
+
+    elif method.lower() == "fairchem":
+        from fairchem.core import __version__
+        from fairchem.core import pretrained_mlip, FAIRChemCalculator
+
+        model_name = kwargs.pop("model_name")
+        predictor = pretrained_mlip.get_predict_unit(model_name)
+        calc = FAIRChemCalculator(predictor, **kwargs)
 
     else:
         raise ValueError(f"Unrecognized {method=}.")
