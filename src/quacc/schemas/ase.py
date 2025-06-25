@@ -328,9 +328,10 @@ class Summarize:
         # # final_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(*calculate_results(final_trajectory))]
         # assert len(final_trajectory) == n_images, f"Final trajectory length {len(final_trajectory)} does not match n_images {n_images}"
         # # directory = self.directory or atoms_trajectory[0].calc.directory
-        directory = self.directory or neb.calc.directory
+        # directory = self.directory or neb.calc.directory
         final_trajectory = neb.images
-        final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
+        # final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
+        final_trajectory_results = [{'energy': e, 'forces': f} for e, f in zip(neb.energies, neb.real_forces)]
 
         # Check convergence
         is_converged = dyn.converged()
@@ -370,7 +371,7 @@ class Summarize:
 
         return finalize_dict(
             unsorted_task_doc,
-            directory,
+            # directory,
             gzip_file=self._settings.GZIP_FILES,
             store=store,
         )

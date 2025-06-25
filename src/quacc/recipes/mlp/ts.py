@@ -103,12 +103,15 @@ def interpolate_job(
             reactant_atoms, product_atoms, n_images, **interpolate_flag
         )
     elif interpolation_method == "popcornn":
-        output = popcornn_wrapper(
+        import torch
+        from popcornn import Popcornn
+        
+        mep = Popcornn(
             images=[reactant_atoms, product_atoms], 
             num_record_points=n_images, 
-            **interpolate_flag,
+            **interpolate_params.get('init_params'),
         )
-        images = output["final_trajectory"]
+        images, _ = mep.optimize_path(*interpolate_params.get('opt_params'))
     else:
         images = [reactant_atoms]
         images += [
@@ -193,28 +196,25 @@ def neb_job(
 @job
 def popcornn_job(
     images: list[Atoms],
-    path_params: dict[str] = {},
-    integrator_params: dict[str] = {},
-    optimizer_params: dict[str] = {},
-    num_optimizer_iterations: int = 1001,
-    num_record_points: int | None = 101,
-    device: str = "cpu",
-    **potential_params,
+    init_params: dict[str] = {},
+    opt_params: list[dict[str, Any]] = [],
 ):
+    import torch
+    from popcornn import Popcornn
     
-    potential_params["potential"] = potential_params.pop("method")
-    pathopt_params = {
-        "images": images,
-        "potential_params": potential_params,
-        "path_params": path_params,
-        "integrator_params": integrator_params,
-        "optimizer_params": optimizer_params,
-        "num_optimizer_iterations": num_optimizer_iterations,
-        "num_record_points": num_record_points,
-        "device": device,
+    mep = Popcornn(images=images, **init_params)
+    final_trajectory, ts_atoms = mep.optimize_path(*opt_params)
+    final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
+    ts_atoms_results = ts_atoms.calc.results
+    output = {
+        "initial_trajectory": images,
+        "final_trajectory": final_trajectory,
+        "final_trajectory_results": final_trajectory_results,
+        "atoms": ts_atoms,
+        "results": ts_atoms_results,
+        "parameters": {'init_params': init_params, 'opt_params': opt_params},
     }
-    output = popcornn_wrapper(**pathopt_params)
-    
+
     return output
 
 
@@ -309,7 +309,8 @@ def irc_job(
                 hessian = hessian.reshape(len(atoms) * 3, len(atoms) * 3)
                 return hessian
             opt_flags["optimizer_kwargs"]["hessian_function"] = get_hessian
-            calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
+            # calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
+            calc_kwargs["calculate_hessian"] = True
 
     calc = pick_calculator(method, **calc_kwargs)
 
@@ -318,27 +319,6 @@ def irc_job(
     return Summarize(
         additional_fields={"name": f"{method} IRC"} | (additional_fields or {})
     ).opt(dyn, check_convergence=False)
-
-
-def popcornn_wrapper(**pathopt_params):
-
-    import torch
-    from popcornn import optimize_MEP
-    torch.cuda.empty_cache()
-    
-    final_trajectory, ts_atoms = optimize_MEP(**pathopt_params)
-    final_trajectory_results = [atoms.calc.results for atoms in final_trajectory]
-    ts_atoms_results = ts_atoms.calc.results
-    output = {
-        "initial_trajectory": pathopt_params.get('images'),
-        "final_trajectory": final_trajectory,
-        "final_trajectory_results": final_trajectory_results,
-        "atoms": ts_atoms,
-        "results": ts_atoms_results,
-        "parameters": pathopt_params,
-    }
-
-    return output
 
 
 def geodesic_interpolate_wrapper(
