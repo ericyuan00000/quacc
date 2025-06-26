@@ -132,6 +132,41 @@ def interpolate_job(
     } | interpolate_flag
 
 @job
+def find_highest_job(
+    images: list[Atoms],
+    method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet", "uma"],
+    **calc_kwargs,
+) -> dict[str, Any]:
+    """
+    Find the highest energy image in a list of images.
+
+    Parameters
+    ----------
+    images
+        List of Atoms objects representing the images.
+    calc_kwargs
+        Additional keyword arguments for the calculator.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary containing the highest energy image and its energy.
+    """
+    for image in images:
+        calc = pick_calculator(method, **calc_kwargs)
+        image.calc = calc
+    
+    energies = [image.get_potential_energy() for image in images]
+    highest_index = np.argmax(energies)
+    
+    return {
+        "atoms": images[highest_index],
+        "results": images[highest_index].calc.results,
+        "trajectory": images,
+        "trajectory_results": [image.calc.results for image in images],
+    }
+
+@job
 def neb_job(
     images: list[Atoms],
     method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet"],
