@@ -181,7 +181,8 @@ def pick_calculator(
         from fairchem.core import pretrained_mlip, FAIRChemCalculator
 
         model_name = kwargs.pop("model_name")
-        predictor = pretrained_mlip.get_predict_unit(model_name)
+        inference_settings = kwargs.pop("inference_settings", "default")
+        predictor = pretrained_mlip.get_predict_unit(model_name, inference_settings)
         calc = FAIRChemCalculator(predictor, **kwargs)
 
     else:
