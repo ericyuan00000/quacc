@@ -152,10 +152,13 @@ def find_highest_job(
     dict[str, Any]
         Dictionary containing the highest energy image and its energy.
     """
-    for image in images:
-        calc = pick_calculator(method, **calc_kwargs)
-        image.calc = calc
+    calc = pick_calculator(method, **calc_kwargs)
     
+    for image in images:
+        image.calc = calc
+        image.get_potential_energy()
+        image.calc = SinglePointCalculator(image, **image.calc.results)
+
     energies = [image.get_potential_energy() for image in images]
     highest_index = np.argmax(energies)
     
