@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 LOGGER = getLogger(__name__)
 
 
-@lru_cache
+# @lru_cache
 def pick_calculator(
     method: Literal["mace-mp-0", "mace-off", "m3gnet", "chgnet", "newtonnet", "escaip"], **kwargs
 ) -> Calculator:
