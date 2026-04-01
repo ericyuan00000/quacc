@@ -24,9 +24,11 @@ import numpy as np
 from ase.atoms import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.mep.neb import NEB, NEBOptimizer, interpolate
+from ase.vibrations import VibrationsData
 import rmsd
 
 from quacc import job
+from quacc.atoms.core import perturb
 from quacc.recipes.mlp._base import pick_calculator
 from quacc.runners.ase import Runner
 from quacc.schemas.ase import Summarize
@@ -311,6 +313,8 @@ def gsm_job(
         atoms_reactant=reactant_atoms, 
         atoms_product=product_atoms, 
         calculator=calc, 
+        charge=reactant_atoms.info.get('charge', 0),
+        multiplicity=reactant_atoms.info.get('spin', 1),
         **gsm_params,
     )
 
@@ -347,8 +351,8 @@ def irc_job(
                 hessian = hessian.reshape(len(atoms) * 3, len(atoms) * 3)
                 return hessian
             opt_flags["optimizer_kwargs"]["hessian_function"] = get_hessian
-            # calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
-            calc_kwargs["calculate_hessian"] = True
+            calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
+            # calc_kwargs["calculate_hessian"] = True
 
     calc = pick_calculator(method, **calc_kwargs)
 
@@ -358,6 +362,52 @@ def irc_job(
         additional_fields={"name": f"{method} IRC"} | (additional_fields or {})
     ).opt(dyn, check_convergence=False)
 
+@job
+def quasi_irc_job(
+    atoms: Atoms,
+    method: Literal["mace-mp-0", "m3gnet", "chgnet"],
+    perturb_magnitude: float = 0.6,
+    direction: Literal["forward", "reverse"] = "forward",
+    relax_cell: bool = False,
+    opt_params: OptParams | None = None,
+    additional_fields: dict[str, Any] | None = None,
+    **calc_kwargs,
+) -> OptSchema:
+    opt_defaults = {"fmax": 0.05, "optimizer_kwargs": {}}
+    opt_flags = recursive_dict_merge(opt_defaults, opt_params)
+    scale = perturb_magnitude if direction == "forward" else perturb_magnitude * -1
+
+    def get_hessian(atoms):
+        if "hessian" in atoms.calc.results:
+            hessian = atoms.calc.results["hessian"]
+        else:
+            hessian = atoms.calc.get_hessian(atoms)
+        hessian = hessian.reshape(len(atoms) * 3, len(atoms) * 3)
+        return hessian
+    
+    if opt_flags["optimizer"] == "Sella":
+        from sella import Sella
+        opt_flags["optimizer"] = Sella
+        custom_hessian = opt_flags["optimizer_kwargs"].pop("custom_hessian", False)
+        if custom_hessian:
+            opt_flags["optimizer_kwargs"]["hessian_function"] = get_hessian
+            # calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
+            # calc_kwargs["calculate_hessian"] = True
+    else:
+        import ase.optimize
+        opt_flags["optimizer"] = getattr(ase.optimize, opt_flags["optimizer"])
+
+    calc = pick_calculator(method, **calc_kwargs)
+    atoms.calc = calc
+    hessian = get_hessian(atoms)
+    modes = VibrationsData.from_2d(atoms, hessian).get_modes()
+    atoms = perturb(atoms, modes[0], scale)
+
+    dyn = Runner(atoms, calc).run_opt(relax_cell=relax_cell, **opt_flags)
+
+    return Summarize(
+        additional_fields={"name": f"{method} {direction} IRC"} | (additional_fields or {})
+    ).opt(dyn, check_convergence=False)
 
 def geodesic_interpolate_wrapper(
     reactant: Atoms,
@@ -439,6 +489,8 @@ def de_gsm_wrapper(
         atoms_reactant: Atoms,
         atoms_product: Atoms,
         calculator: Calculator,
+        charge: int = 0,
+        multiplicity: int = 1,
         optimizer_method = "eigenvector_follow",
         coordinate_type = "TRIC",
         line_search = 'NoLineSearch',  # OR: 'backtrack'
@@ -469,11 +521,15 @@ def de_gsm_wrapper(
     lot = ASELoT.from_options(
         calculator=calculator, 
         geom=[[atom.symbol, *atom.position] for atom in atoms_reactant],
+        charge=charge,
+        states=[(multiplicity, 0)],
+        gradient_states=[(multiplicity, 0)],
     )
 
     # Potential energy surface
     pes_obj = PES.from_options(
         lot=lot,
+        multiplicity=multiplicity,
     )
 
     # Build the topology
@@ -590,6 +646,7 @@ def de_gsm_wrapper(
         atoms.calc = SinglePointCalculator(
             atoms, energy=atoms.get_potential_energy(), forces=atoms.get_forces()
         )
+        atoms.info = {"charge": charge, "spin": multiplicity}
         frames.append(atoms)
     ts_atoms = frames[gsm.TSnode]
 

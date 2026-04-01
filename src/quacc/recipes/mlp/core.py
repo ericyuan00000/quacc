@@ -112,7 +112,7 @@ def relax_job(
                 hessian = hessian.reshape(len(atoms) * 3, len(atoms) * 3)
                 return hessian
             opt_flags["optimizer_kwargs"]["hessian_function"] = get_hessian
-            calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
+            # calc_kwargs["properties"] = ('energy', 'forces', 'hessian')
             # calc_kwargs["calculate_hessian"] = True
     else:
         import ase.optimize
